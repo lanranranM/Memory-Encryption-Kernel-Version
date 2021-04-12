@@ -472,7 +472,10 @@ int mencrypt(char *virtual_addr, int len) {
   return 0;
 }
 
-int getpgtable(struct pt_entry* entries, int num) {
+int getpgtable(struct pt_entry* entries, int num, int wsetOnly) {
+  //p5 melody changes
+  if(wsetOnly!=0 || wsetOnly!=1) return -1;
+  //
   struct proc * me = myproc();
 
   int index = 0;
@@ -487,17 +490,22 @@ int getpgtable(struct pt_entry* entries, int num) {
 
     //currPage is 0 if page is not allocated
     //see deallocuvm
-    if (curr_pte && *curr_pte) {//this page is allocated
-      //this is the same for all pt_entries... right?
-      entries[index].pdx = PDX(i); 
-      entries[index].ptx = PTX(i);
-      //convert to physical addr then shift to get PPN 
-      entries[index].ppage = PPN(*curr_pte);
-      //have to set it like this because these are 1 bit wide fields
-      entries[index].present = (*curr_pte & PTE_P) ? 1 : 0;
-      entries[index].writable = (*curr_pte & PTE_W) ? 1 : 0;
-      entries[index].encrypted = (*curr_pte & PTE_E) ? 1 : 0;
-      index++;
+    if(wsetOnly){
+      //filling with the pte in the working queue
+      ;
+    }else{
+      if (curr_pte && *curr_pte) {//this page is allocated
+        //this is the same for all pt_entries... right?
+        entries[index].pdx = PDX(i); 
+        entries[index].ptx = PTX(i);
+        //convert to physical addr then shift to get PPN 
+        entries[index].ppage = PPN(*curr_pte);
+        //have to set it like this because these are 1 bit wide fields
+        entries[index].present = (*curr_pte & PTE_P) ? 1 : 0;
+        entries[index].writable = (*curr_pte & PTE_W) ? 1 : 0;
+        entries[index].encrypted = (*curr_pte & PTE_E) ? 1 : 0;
+        index++;
+      }
     }
   }
   //index is the number of ptes copied
