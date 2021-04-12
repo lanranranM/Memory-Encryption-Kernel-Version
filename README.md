@@ -8,7 +8,7 @@
 | description | progess |
 | ----------- | ----------- |
 | 1, init all the user pages as the encrypted state | finished, x debug |
-| 1.5, update getpgtable(), dump_rawphymem() | Text |
+| 1.5, update getpgtable(), dump_rawphymem() |  |
 | 2, add the clock queue mechanism<br />|  |
 | 3, manage the fork()|  |
 
@@ -17,6 +17,8 @@
 
 ## todo 1.5
 1. update getpgtable() with new ptentry.h  
+  - updated new ptentry.h √  
+  - build the logical frame √  
 2. update dump_raw() with decrypted pages  
 
 ## todo 2
