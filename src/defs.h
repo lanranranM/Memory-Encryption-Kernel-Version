@@ -193,6 +193,10 @@ int             getpgtable(struct pt_entry* entries, int num, int wsetOnly);
 int             dump_rawphymem(uint physical_addr, char * buffer);
 //TODO: mention this
 int            mdecrypt(char *virtual_addr);
+//p6 melody changes
+int            cq_enset(char* va);
+void           cq_init(struct proc*);
+void           cq_remove(uint *pte);
 
 
 // number of elements in fixed-size array

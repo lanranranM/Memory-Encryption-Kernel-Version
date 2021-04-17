@@ -84,6 +84,7 @@ trap(struct trapframe *tf)
     if (!mdecrypt(addr)) {
       //"break" means don't go to the default
       //default kills the process
+
       break;
     };
   //PAGEBREAK: 13

@@ -104,6 +104,7 @@ struct segdesc {
 //changed: Added PTE_E. You have 12 bits for flags according
 //to page 30 of the textbook
 #define PTE_E           0x400
+#define PTE_A           0x020   //access bit, only need to clear manually, don't need set
 
 // Address in page table or page directory entry
 #define PTE_ADDR(pte)   ((uint)(pte) & ~0xFFF)

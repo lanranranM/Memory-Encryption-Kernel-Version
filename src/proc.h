@@ -8,10 +8,16 @@ struct cpu {
   int ncli;                    // Depth of pushcli nesting.
   int intena;                  // Were interrupts enabled before pushcli?
   struct proc *proc;           // The process running on this cpu or null
+  
 };
 
 extern struct cpu cpus[NCPU];
 extern int ncpu;
+typedef struct cq_node{
+  int empty;  //-1 if the node is empty
+  char* va;  
+  pte_t *pte;
+}cq_node;
 
 //PAGEBREAK: 17
 // Saved registers for kernel context switches.
@@ -49,6 +55,9 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  struct cq_node cq[CLOCKSIZE];  //P6 melody changes
+  int clock_hand;
+  //int cur_pages;
 };
 
 // Process memory is laid out contiguously, low addresses first:

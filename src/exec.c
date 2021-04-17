@@ -68,7 +68,7 @@ exec(char *path, char **argv)
     goto bad;
   clearpteu(pgdir, (char*)(sz - 2*PGSIZE));
   sp = sz;
-  //p5-melody-changes
+  //p6-melody-changes
   //int record_sz=sz;
   //ends
   // Push argument strings, prepare rest of stack in ustack.
@@ -97,17 +97,21 @@ exec(char *path, char **argv)
   safestrcpy(curproc->name, last, sizeof(curproc->name));
 
   // Commit to the user image.
+  cq_init(curproc);
   oldpgdir = curproc->pgdir;
   curproc->pgdir = pgdir;
   curproc->sz = sz;
   curproc->tf->eip = elf.entry;  // main
   curproc->tf->esp = sp;
+  
   switchuvm(curproc);
+  for(int i=0;i<sz;i+=PGSIZE)
+    mencrypt((char*)i,1);
   freevm(oldpgdir);
-  //p5 melody changes
-  uint page_num=1;
+  //p6 melody changes
+  //uint page_num=1;
   //cprintf("exec-page_num:%d\n",page_num);
-  if(mencrypt((char*)PGROUNDUP(sz-PGSIZE),page_num)!=0) return -1;
+  //if(mencrypt((char*)PGROUNDUP(sz-PGSIZE),page_num)!=0) return -1;
   //ends
   return 0;
 

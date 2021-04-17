@@ -79,8 +79,9 @@ allocproc(void)
   acquire(&ptable.lock);
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == UNUSED)
+    if(p->state == UNUSED){
       goto found;
+    }
 
   release(&ptable.lock);
   return 0;
@@ -88,7 +89,6 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -111,7 +111,6 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
-
   return p;
 }
 
@@ -171,9 +170,9 @@ growproc(int n)
   }
   curproc->sz = sz;
   switchuvm(curproc);
-  //p5 melody changes
+  //p6 melody changes
   uint page_num=n/PGSIZE;
-  cprintf("growproc-page_num:%d\n",page_num);
+  //cprintf("growproc-page_num:%d\n",page_num);
   if(mencrypt((char*)PGROUNDUP(sz-n),page_num)!=0) return -1;
   //ends
   return 0;
@@ -222,6 +221,15 @@ fork(void)
   np->state = RUNNABLE;
 
   release(&ptable.lock);
+
+  //p6 melody changes
+  for(int i=0;i<CLOCKSIZE;i++){
+    np->cq[i].va=curproc->cq[i].va;
+    np->cq[i].pte=curproc->cq[i].pte;
+    np->cq[i].empty=curproc->cq[i].empty;
+  }
+  np->clock_hand=curproc->clock_hand;
+  //end
 
   return pid;
 }
@@ -490,6 +498,8 @@ kill(int pid)
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->pid == pid){
       p->killed = 1;
+      //p6 melody changes to initi cq
+      cq_init(p);
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
         p->state = RUNNABLE;

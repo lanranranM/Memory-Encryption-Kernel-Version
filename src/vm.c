@@ -9,6 +9,11 @@
 
 extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
+//p6 melody changes
+
+
+
+//cq_node cq[CLOCKSIZE];  //working set
 
 // Set up CPU's kernel segment descriptors.
 // Run once on entry on each CPU.
@@ -282,6 +287,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         panic("kfree");
       char *v = P2V(pa);
       kfree(v);
+      cq_remove(pte);
       *pte = 0;
     }
   }
@@ -403,13 +409,96 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
   }
   return 0;
 }
+//p6 melody changes
+//clear the queue
+void cq_init(struct proc* p){
+  for(int i=0;i<CLOCKSIZE;i++){
+    p->cq[i].empty=-1;
+    p->cq[i].va=(void*)0;
+    p->cq[i].pte=(void*)0;
+    //cprintf("cq_init: pid:%d cq:%x va:%x, pte:%x\n",p->pid,p->cq,p->cq[i]->va,p->cq[i]->pte);
+  }
+  p->clock_hand=-1;
+  return;
+}
 
+//insert one page in the working set
+//may replace a victim 
+//return 0 succ
+int
+cq_enset(char* va){
+  pte_t * pte = walkpgdir(myproc()->pgdir, va, 0);
+  if(!pte) return -1;
+  //check repetion
+  // cprintf("check current working set with pte:%x\n",pte);
+  // for(int i=0;i<CLOCKSIZE;i++){
+  //   cprintf("pid:%d cq:%x pte:%x va:%x empty:%d ref:%d\n",myproc()->pid,myproc()->cq,myproc()->cq[i].pte,myproc()->cq[i].va,myproc()->cq[i].empty,*(myproc()->cq[i].pte)&PTE_A);
+  // }
+  for(int i=0;i<CLOCKSIZE;i++){
+    if(myproc()->cq[i].pte==pte && myproc()->cq[i].empty!=-1) return 0;
+  }
+
+  int clock_hand=myproc()->clock_hand;
+  while(1){
+    clock_hand = (clock_hand + 1) % CLOCKSIZE;
+    // Found an empty slot.
+    if ((myproc()->cq[clock_hand].empty)==-1) {
+        //printf("empty case: pid:%d va: %x pte: %d PTE_P: %d\n",myproc()->pid, va,pte,(*pte & PTE_P));
+        myproc()->cq[clock_hand].va = va;
+        myproc()->cq[clock_hand].pte = pte;
+        myproc()->cq[clock_hand].empty=0;
+        break;
+    }
+    else if(!(*(myproc()->cq[clock_hand].pte)& PTE_A)){
+      //replace
+      //cprintf("replace:\n");
+      mencrypt(myproc()->cq[clock_hand].va,1);//the vicim page
+      myproc()->cq[clock_hand].va=va;
+      myproc()->cq[clock_hand].pte=pte;
+      break;
+    }else{
+      //int bit=-1;
+      //if(*(myproc()->cq[clock_hand].pte)&PTE_A) bit=1;
+      *(myproc()->cq[clock_hand].pte)&=(~PTE_A);
+      //cprintf("after clear ref: %d\n",*(myproc()->cq[clock_hand].pte)&PTE_A);
+    }
+   }
+  myproc()->clock_hand=clock_hand;
+  return 0;
+}
+
+void cq_remove(pte_t *pte){
+  //cprintf("hi from remove\n");
+  int old_hand=myproc()->clock_hand;
+  int del_i=-1;
+  for(int i=0;i<CLOCKSIZE;i++){
+    if(myproc()->cq[i].pte==pte){
+      del_i=i;
+      break;
+    }
+  }
+  if(del_i==-1) return;
+  for(int i=del_i;i!=old_hand;i++){
+    int next=(i+1)%CLOCKSIZE;
+    myproc()->cq[i].va=myproc()->cq[next].va;
+    myproc()->cq[i].pte=myproc()->cq[next].pte;
+    myproc()->cq[i].empty=myproc()->cq[next].empty;
+  }
+  myproc()->cq[old_hand].empty=-1;
+  myproc()->clock_hand=myproc()->clock_hand ==0? CLOCKSIZE-1: myproc()->clock_hand-1;
+  return;
+}
+
+//end
 
 //returns 0 on success
 int mdecrypt(char *virtual_addr) {
   //cprintf("mdecrypt: VPN %d, %p, pid %d\n", PPN(virtual_addr), virtual_addr, myproc()->pid);
   //the given pointer is a virtual address in this pid's userspace
+  char *tmp=virtual_addr;
+  if((uint)virtual_addr>=2147483648) return -1;
   struct proc * p = myproc();
+
   pde_t* mypd = p->pgdir;
   //set the present bit to true and encrypt bit to false
   pte_t * pte = walkpgdir(mypd, virtual_addr, 0);
@@ -427,7 +516,8 @@ int mdecrypt(char *virtual_addr) {
     *slider = ~*slider;
     slider++;
   }
-
+  if(cq_enset(tmp)) return -1;
+  switchuvm(p);
   return 0;
 }
 
@@ -444,7 +534,7 @@ int mencrypt(char *virtual_addr, int len) {
     //check page table for each translation first
     char * kvp = uva2ka(mypd, slider);
     if (!kvp) {
-      cprintf("mencrypt: Could not access address\n");
+      // cprintf("mencrypt: Could not access address\n");
       return -1;
     }
     slider = slider + PGSIZE;
@@ -471,10 +561,17 @@ int mencrypt(char *virtual_addr, int len) {
   switchuvm(myproc());
   return 0;
 }
-
+//p6 melody changes
+int pet_in_set(pte_t *pte){
+  if(!pte) return 0;
+  // cprintf("inset:pte:%x p:%d e:%d\n",*pte,(*pte & PTE_P),(*pte & !PTE_E));
+  if((*pte & PTE_P)&&(*pte & ~PTE_E)) return 1;
+  return 0;
+}
+//end
 int getpgtable(struct pt_entry* entries, int num, int wsetOnly) {
-  //p5 melody changes
-  if(wsetOnly!=0 || wsetOnly!=1) return -1;
+  //p6 melody changes
+  if(wsetOnly!=0 && wsetOnly!=1) return -1;
   //
   struct proc * me = myproc();
 
@@ -485,17 +582,15 @@ int getpgtable(struct pt_entry* entries, int num, int wsetOnly) {
   for (void * i = (void*) PGROUNDDOWN(((int)me->sz)); i >= 0 && index < num; i-=PGSIZE) {
     //walk through the page table and read the entries
     //Those entries contain the physical page number + flags
+    if(i==0) break;
     curr_pte = walkpgdir(me->pgdir, i, 0);
 
 
     //currPage is 0 if page is not allocated
     //see deallocuvm
-    if(wsetOnly){
-      //filling with the pte in the working queue
-      ;
-    }else{
-      if (curr_pte && *curr_pte) {//this page is allocated
-        //this is the same for all pt_entries... right?
+    if (curr_pte && *curr_pte) {//this page is allocated
+      //this is the same for all pt_entries... right?
+      if(!wsetOnly||(wsetOnly&&pet_in_set(curr_pte))){
         entries[index].pdx = PDX(i); 
         entries[index].ptx = PTX(i);
         //convert to physical addr then shift to get PPN 
@@ -503,10 +598,13 @@ int getpgtable(struct pt_entry* entries, int num, int wsetOnly) {
         //have to set it like this because these are 1 bit wide fields
         entries[index].present = (*curr_pte & PTE_P) ? 1 : 0;
         entries[index].writable = (*curr_pte & PTE_W) ? 1 : 0;
+        entries[index].user=(*curr_pte&PTE_U) ? 1:0;
         entries[index].encrypted = (*curr_pte & PTE_E) ? 1 : 0;
+        entries[index].ref=!(*curr_pte & PTE_E) && (*curr_pte & PTE_A) ? 1:0;
         index++;
       }
     }
+    
   }
   //index is the number of ptes copied
   return index;
@@ -516,6 +614,7 @@ int getpgtable(struct pt_entry* entries, int num, int wsetOnly) {
 int dump_rawphymem(uint physical_addr, char * buffer) {
   //note that copyout converts buffer to a kva and then copies
   //which means that if buffer is encrypted, it won't trigger a decryption request
+  *buffer = *buffer;
   int retval = copyout(myproc()->pgdir, (uint) buffer, (void *) P2V(physical_addr), PGSIZE);
   if (retval)
     return -1;
