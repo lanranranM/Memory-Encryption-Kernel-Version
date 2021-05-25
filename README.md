@@ -1,8 +1,9 @@
-# os537_p6
+# os-Memory-Encryption-Kernel-Version
 
 ## questions
 1. data structure of the queue?
 2. where to put the queue management?
+3. What files need to be modified to ensure the system working
 
 ## todo  
 | description | progess |
