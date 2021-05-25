@@ -1,6 +1,6 @@
 # os-Memory-Encryption-Kernel-Version  
 
-Added features to improve virtual memory system management in xv6. When a process is created, the memory system will encrypt the contents of its user pages to ensure its security and decrypt the page when the user needs it. Also, I introduce the clock algorithm to minimize the number of page decryptions to improve efficiency.  
+Added features to improve virtual memory system management in xv6. When a process is created, the memory system will encrypt the contents of its user pages to ensure its security and decrypt the page when the user needs it. Also, I introduced the clock algorithm to minimize the number of page decryptions to improve efficiency.  
 
 ## How to start  
 You can just experience the features by running the xv6 system which mentioned in its README. Moreover, I added some user tests, so you can run the tests to see how the memory system plays with user page tables.
